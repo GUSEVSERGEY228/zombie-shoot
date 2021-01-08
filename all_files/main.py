@@ -1,22 +1,25 @@
 import os
 import sys
+from random import choice
 
 import pygame
 
 pygame.init()
 pygame.key.set_repeat(200, 70)
 
-FPS = 50
-WIDTH = 300
-HEIGHT = 300
+FPS = 60
+WIDTH = 1000
+HEIGHT = 1000
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 STEP = 1
+ZSTEP = 4
 
 all_sprites = pygame.sprite.Group()
 tiles_group = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 wall_group = pygame.sprite.Group()
+zombie_group = pygame.sprite.Group()
 
 
 def load_level(filename):
@@ -30,17 +33,21 @@ def load_level(filename):
 
 
 def generate_level(level):
-    new_player, x, y = None, None, None
+    new_player, x, y, zombies = None, None, None, []
     for y in range(len(level)):
         for x in range(len(level[y])):
             if level[y][x] == '.':
                 Tile('empty', x, y)
             elif level[y][x] == '#':
                 Tile('wall', x, y)
-            elif level[y][x] == '@':
+            elif level[y][x] == 'p':
                 Tile('empty', x, y)
                 new_player = Player(x, y)
-    return new_player, x, y
+            elif level[y][x] == 'z':
+                Tile('empty', x, y)
+                cur_zombie = Zombie(x, y)
+                zombies.append(cur_zombie)
+    return new_player, zombies, x, y
 
 
 def load_image(name, color_key=None):
@@ -69,7 +76,8 @@ tile_images = {
     'wall': load_image('box.png'),
     'empty': load_image('grass.png')
 }
-player_image = load_image('mar.png')
+player_image = load_image('character1.png', color_key='white')
+zombie_image = load_image('zombie.png', color_key='white')
 
 tile_width = tile_height = 50
 
@@ -93,28 +101,62 @@ class Player(pygame.sprite.Sprite):
 
     def go(self, direction):
         if direction == 'up':
+            self.image = load_image('character.png', color_key='white')
             player.rect.y -= STEP
             if pygame.sprite.spritecollideany(self, wall_group):
                 player.rect.y += STEP
         if direction == 'down':
+            self.image = load_image('character2.png', color_key='white')
             player.rect.y += STEP
             if pygame.sprite.spritecollideany(self, wall_group):
                 player.rect.y -= STEP
         if direction == 'left':
+            self.image = load_image('character3.png', color_key='white')
             player.rect.x -= STEP
             if pygame.sprite.spritecollideany(self, wall_group):
                 player.rect.x += STEP
         if direction == 'right':
+            self.image = load_image('character1.png', color_key='white')
             player.rect.x += STEP
             if pygame.sprite.spritecollideany(self, wall_group):
                 player.rect.x -= STEP
 
 
+class Zombie(pygame.sprite.Sprite):
+    def __init__(self, pos_x, pos_y):
+        super().__init__(zombie_group, all_sprites)
+        self.image = zombie_image
+        self.rect = self.image.get_rect().move(
+            tile_width * pos_x + 15, tile_height * pos_y + 5)
+        self.direction = 'up'
+
+    def go(self, direction):
+        if direction:
+            self.direction = direction
+        if self.direction == 'up':
+            self.image = load_image('zombie.png', color_key='white')
+            i.rect.y -= ZSTEP
+            if pygame.sprite.spritecollideany(self, wall_group):
+                i.rect.y += ZSTEP
+        if self.direction == 'down':
+            self.image = load_image('zombie2.png', color_key='white')
+            i.rect.y += ZSTEP
+            if pygame.sprite.spritecollideany(self, wall_group):
+                i.rect.y -= ZSTEP
+        if self.direction == 'left':
+            self.image = load_image('zombie3.png', color_key='white')
+            i.rect.x -= ZSTEP
+            if pygame.sprite.spritecollideany(self, wall_group):
+                i.rect.x += ZSTEP
+        if self.direction == 'right':
+            self.image = load_image('zombie1.png', color_key='white')
+            i.rect.x += ZSTEP
+            if pygame.sprite.spritecollideany(self, wall_group):
+                i.rect.x -= ZSTEP
+
+
 def start_screen():
-    intro_text = ["ЗАСТАВКА", "",
-                  "Правила игры",
-                  "Если в правилах несколько строк,",
-                  "приходится выводить их построчно"]
+    intro_text = ["нажмите на мышку, чтобы начать"]
 
     fon = pygame.transform.scale(load_image('fon.jpg'), (WIDTH, HEIGHT))
     screen.blit(fon, (0, 0))
@@ -155,11 +197,16 @@ class Camera:
 
 
 start_screen()
-player, level_x, level_y = generate_level(load_level('map.txt'))
+player, zombies, level_x, level_y = generate_level(load_level('map.txt'))
 running = True
 camera = Camera()
+pygame.key.set_repeat(6)
+directions = ('up', 'right', 'down', 'left')
+zombie_dir = 0
+direct = choice(directions)
 
 while running:
+    zombie_dir += 1  # эта переменная нужна для "искусственного интелекта" зомби
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             terminate()
@@ -172,12 +219,19 @@ while running:
                 player.go('up')
             if event.key == pygame.K_s:
                 player.go('down')
+    for i in zombies:
+        if zombie_dir % 100 == 0:
+            direct = choice(directions)
+            i.go(direct)
+        else:
+            i.go(None)
     camera.update(player)
     for sprite in all_sprites:
         camera.apply(sprite)
     screen.fill('black')
     tiles_group.draw(screen)
     player_group.draw(screen)
+    zombie_group.draw(screen)
     pygame.display.flip()
     clock.tick(FPS)
 pygame.quit()
