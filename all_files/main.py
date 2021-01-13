@@ -1,6 +1,7 @@
 import os
 import sys
-from random import choice
+from random import choice, randint
+from time import sleep
 
 import pygame
 
@@ -14,12 +15,15 @@ clock = pygame.time.Clock()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 STEP = 1
 ZSTEP = 4
+BSTEP = 15
 
 all_sprites = pygame.sprite.Group()
 tiles_group = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 wall_group = pygame.sprite.Group()
 zombie_group = pygame.sprite.Group()
+cursor_group = pygame.sprite.Group()
+shoot_group = pygame.sprite.Group()
 
 
 def load_level(filename):
@@ -78,6 +82,8 @@ tile_images = {
 }
 player_image = load_image('character1.png', color_key='white')
 zombie_image = load_image('zombie.png', color_key='white')
+shoot_image = load_image('shoot.png', color_key='black')
+vzriv_image = load_image('vzriv.png', color_key='white')
 
 tile_width = tile_height = 50
 
@@ -121,6 +127,12 @@ class Player(pygame.sprite.Sprite):
             if pygame.sprite.spritecollideany(self, wall_group):
                 player.rect.x -= STEP
 
+    def shoot(self, coords1, coords2):
+        global shooted
+        shooted = [delay, True]
+        shoot.rect.topleft = coords1
+        vzriv.rect.topleft = coords2
+
 
 class Zombie(pygame.sprite.Sprite):
     def __init__(self, pos_x, pos_y):
@@ -135,32 +147,32 @@ class Zombie(pygame.sprite.Sprite):
             self.direction = direction
         if self.direction == 'up':
             self.image = load_image('zombie.png', color_key='white')
-            i.rect.y -= ZSTEP
+            zombies[i].rect.y -= ZSTEP
             if pygame.sprite.spritecollideany(self, wall_group):
-                i.rect.y += ZSTEP
+                zombies[i].rect.y += ZSTEP
         if self.direction == 'down':
             self.image = load_image('zombie2.png', color_key='white')
-            i.rect.y += ZSTEP
+            zombies[i].rect.y += ZSTEP
             if pygame.sprite.spritecollideany(self, wall_group):
-                i.rect.y -= ZSTEP
+                zombies[i].rect.y -= ZSTEP
         if self.direction == 'left':
             self.image = load_image('zombie3.png', color_key='white')
-            i.rect.x -= ZSTEP
+            zombies[i].rect.x -= ZSTEP
             if pygame.sprite.spritecollideany(self, wall_group):
-                i.rect.x += ZSTEP
+                zombies[i].rect.x += ZSTEP
         if self.direction == 'right':
             self.image = load_image('zombie1.png', color_key='white')
-            i.rect.x += ZSTEP
+            zombies[i].rect.x += ZSTEP
             if pygame.sprite.spritecollideany(self, wall_group):
-                i.rect.x -= ZSTEP
+                zombies[i].rect.x -= ZSTEP
 
 
 def start_screen():
-    intro_text = ["нажмите на мышку, чтобы начать"]
+    intro_text = ["нажмите на мышку, чтобы начать ОСТОРОЖНО СКРИМЕРЫ"]
 
     fon = pygame.transform.scale(load_image('fon.jpg'), (WIDTH, HEIGHT))
     screen.blit(fon, (0, 0))
-    font = pygame.font.Font(None, 33)
+    font = pygame.font.Font(None, 40)
     text_coord = 50
     for line in intro_text:
         string_rendered = font.render(line, True, pygame.Color('black'))
@@ -170,7 +182,6 @@ def start_screen():
         intro_rect.x = 10
         text_coord += intro_rect.height
         screen.blit(string_rendered, intro_rect)
-
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -202,11 +213,31 @@ running = True
 camera = Camera()
 pygame.key.set_repeat(6)
 directions = ('up', 'right', 'down', 'left')
-zombie_dir = 0
+delay = 0
 direct = choice(directions)
+screemers = ('screemer.jpg', 'screemer2.jpg', 'screemer3.jpg')
+kriks = ('data/krik.mp3', 'data/krik2.mp3', 'data/krik3.mp3')
+cursor = pygame.sprite.Sprite()
+cursor.image = load_image("cursor.png", color_key='white')
+cursor.rect = cursor.image.get_rect()
+all_sprites.add(cursor)
+cursor_group.add(cursor)
+pygame.mouse.set_visible(False)
+shooted = [delay, False]
+shoot = pygame.sprite.Sprite()
+shoot.image = shoot_image
+shoot.rect = shoot.image.get_rect()
+all_sprites.add(shoot)
+shoot_group.add(shoot)
+vzriv = pygame.sprite.Sprite()
+vzriv.image = vzriv_image
+vzriv.rect = vzriv.image.get_rect()
+all_sprites.add(vzriv)
+shoot_group.add(vzriv)
+kill_zombie = None
 
 while running:
-    zombie_dir += 1  # эта переменная нужна для "искусственного интелекта" зомби
+    delay += 1  # эта переменная нужна для "искусственного интелекта" зомби и для выстрела
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             terminate()
@@ -219,19 +250,45 @@ while running:
                 player.go('up')
             if event.key == pygame.K_s:
                 player.go('down')
-    for i in zombies:
-        if zombie_dir % 100 == 0:
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            player.shoot(player.rect[:2], pygame.mouse.get_pos())
+        cursor.rect.topleft = pygame.mouse.get_pos()
+    if shooted[1]:
+        if delay - shooted[0] == 30:
+            shooted[1] = False
+
+    for i in range(len(zombies)):
+        if pygame.sprite.spritecollideany(zombies[i], shoot_group):
+            kill_zombie = i + 1
+        if delay % randint(20, 200) == 0:
             direct = choice(directions)
-            i.go(direct)
+            zombies[i].go(direct)
         else:
-            i.go(None)
+            zombies[i].go(None)
+    if kill_zombie:
+        all_sprites.remove(zombies[kill_zombie - 1])
+        zombie_group.remove(zombies[kill_zombie - 1])
+        del zombies[kill_zombie - 1]
+        kill_zombie = None
     camera.update(player)
     for sprite in all_sprites:
         camera.apply(sprite)
     screen.fill('black')
     tiles_group.draw(screen)
-    player_group.draw(screen)
     zombie_group.draw(screen)
-    pygame.display.flip()
+    if shooted[1]:
+        shoot_group.draw(screen)
+    player_group.draw(screen)
+    cursor_group.draw(screen)
     clock.tick(FPS)
+    if pygame.sprite.spritecollideany(player, zombie_group):
+        imgname = choice(screemers)
+        zvukname = choice(kriks)
+        fon = pygame.transform.scale(load_image(imgname), (WIDTH, HEIGHT))
+        screen.blit(fon, (0, 0))
+        pygame.mixer.music.load(zvukname)
+        pygame.mixer.music.play()
+        pygame.display.flip()
+        sleep(1)
+    pygame.display.flip()
 pygame.quit()
