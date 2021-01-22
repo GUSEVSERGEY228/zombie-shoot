@@ -91,7 +91,7 @@ tile_images = {
 player_image = load_image('character1.png', color_key='white')
 zombie_image = load_image('zombie.png', color_key='white')
 shoot_image = load_image('shoot.png', color_key='black')
-vzriv_image = load_image('vzriv.png', color_key='white')
+boom_image = load_image('boom.png', color_key='black')
 ammo_image = load_image('ammo.png', color_key='white')
 
 tile_width = tile_height = 50
@@ -182,7 +182,7 @@ class Zombie(pygame.sprite.Sprite):
 
 
 def start_screen():
-    intro_text = ["нажмите на мышку, чтобы начать ОСТОРОЖНО СКРИМЕРЫ"]
+    intro_text = ['нажмите на мышку, чтобы начать ОСТОРОЖНО СКРИМЕРЫ', 'прочитайте файл "read before you play"']
 
     fon = pygame.transform.scale(load_image('fon.jpg'), (WIDTH, HEIGHT))
     screen.blit(fon, (0, 0))
@@ -231,6 +231,7 @@ delay = 0
 direct = choice(directions)
 screemers = ('screemer.jpg', 'screemer2.jpg', 'screemer3.jpg')
 kriks = ('data/krik.mp3', 'data/krik2.mp3', 'data/krik3.mp3')
+music = 'data/music.mp3'
 cursor = pygame.sprite.Sprite()
 cursor.image = load_image("cursor.png", color_key='white')
 cursor.rect = cursor.image.get_rect()
@@ -244,15 +245,20 @@ shoot.rect = shoot.image.get_rect()
 all_sprites.add(shoot)
 shoot_group.add(shoot)
 vzriv = pygame.sprite.Sprite()
-vzriv.image = vzriv_image
+vzriv.image = boom_image
 vzriv.rect = vzriv.image.get_rect()
 all_sprites.add(vzriv)
 shoot_group.add(vzriv)
 kill_zombie = None
 admin_mode = False
 reloral_time = 150
+screemed = False
 
 while running:
+    if delay / 1200 == 0 or screemed:
+        pygame.mixer.music.load(music)
+        pygame.mixer.music.play()
+        screemed = False
     delay += 1  # эта переменная нужна для "искусственного интелекта" зомби и для выстрела
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -320,6 +326,7 @@ while running:
         pygame.mixer.music.play()
         pygame.display.flip()
         sleep(1)
+        screemed = True
 
     pygame.display.flip()
 pygame.quit()
