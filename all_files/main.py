@@ -14,8 +14,6 @@ HEIGHT = 1000
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 STEP = 1
-ZSTEP = 4
-BSTEP = 15
 
 all_sprites = pygame.sprite.Group()
 tiles_group = pygame.sprite.Group()
@@ -24,6 +22,7 @@ wall_group = pygame.sprite.Group()
 zombie_group = pygame.sprite.Group()
 cursor_group = pygame.sprite.Group()
 shoot_group = pygame.sprite.Group()
+ammo_group = pygame.sprite.Group()
 
 
 def load_level(filename):
@@ -43,7 +42,13 @@ def generate_level(level):
             if level[y][x] == '.':
                 Tile('empty', x, y)
             elif level[y][x] == '#':
-                Tile('wall', x, y)
+                Tile('box', x, y)
+            elif level[y][x] == 'b':
+                Tile('brick', x, y)
+            elif level[y][x] == 'w':
+                Tile('woodwall', x, y)
+            elif level[y][x] == 'f':
+                Tile('woodbg', x, y)
             elif level[y][x] == 'p':
                 Tile('empty', x, y)
                 new_player = Player(x, y)
@@ -77,13 +82,17 @@ def terminate():
 
 
 tile_images = {
-    'wall': load_image('box.png'),
+    'woodwall': load_image('woodwall.png'),
+    'woodbg': load_image('woodbg.png'),
+    'brick': load_image('brick.png'),
+    'box': load_image('box.png'),
     'empty': load_image('grass.png')
 }
 player_image = load_image('character1.png', color_key='white')
 zombie_image = load_image('zombie.png', color_key='white')
 shoot_image = load_image('shoot.png', color_key='black')
 vzriv_image = load_image('vzriv.png', color_key='white')
+ammo_image = load_image('ammo.png', color_key='white')
 
 tile_width = tile_height = 50
 
@@ -94,7 +103,11 @@ class Tile(pygame.sprite.Sprite):
         self.image = tile_images[tile_type]
         self.rect = self.image.get_rect().move(
             tile_width * pos_x, tile_height * pos_y)
-        if tile_type == 'wall':
+        if tile_type == 'brick':
+            wall_group.add(self)
+        if tile_type == 'woodwall':
+            wall_group.add(self)
+        if tile_type == 'box':
             wall_group.add(self)
 
 
@@ -129,7 +142,7 @@ class Player(pygame.sprite.Sprite):
 
     def shoot(self, coords1, coords2):
         global shooted
-        shooted = [delay, True]
+        shooted = [delay, True, True]
         shoot.rect.topleft = coords1
         vzriv.rect.topleft = coords2
 
@@ -143,28 +156,29 @@ class Zombie(pygame.sprite.Sprite):
         self.direction = 'up'
 
     def go(self, direction):
+        step = randint(0, 10)
         if direction:
             self.direction = direction
         if self.direction == 'up':
             self.image = load_image('zombie.png', color_key='white')
-            zombies[i].rect.y -= ZSTEP
+            zombies[i].rect.y -= step
             if pygame.sprite.spritecollideany(self, wall_group):
-                zombies[i].rect.y += ZSTEP
+                zombies[i].rect.y += step
         if self.direction == 'down':
             self.image = load_image('zombie2.png', color_key='white')
-            zombies[i].rect.y += ZSTEP
+            zombies[i].rect.y += step
             if pygame.sprite.spritecollideany(self, wall_group):
-                zombies[i].rect.y -= ZSTEP
+                zombies[i].rect.y -= step
         if self.direction == 'left':
             self.image = load_image('zombie3.png', color_key='white')
-            zombies[i].rect.x -= ZSTEP
+            zombies[i].rect.x -= step
             if pygame.sprite.spritecollideany(self, wall_group):
-                zombies[i].rect.x += ZSTEP
+                zombies[i].rect.x += step
         if self.direction == 'right':
             self.image = load_image('zombie1.png', color_key='white')
-            zombies[i].rect.x += ZSTEP
+            zombies[i].rect.x += step
             if pygame.sprite.spritecollideany(self, wall_group):
-                zombies[i].rect.x -= ZSTEP
+                zombies[i].rect.x -= step
 
 
 def start_screen():
@@ -223,7 +237,7 @@ cursor.rect = cursor.image.get_rect()
 all_sprites.add(cursor)
 cursor_group.add(cursor)
 pygame.mouse.set_visible(False)
-shooted = [delay, False]
+shooted = [delay, False, False]
 shoot = pygame.sprite.Sprite()
 shoot.image = shoot_image
 shoot.rect = shoot.image.get_rect()
@@ -235,6 +249,8 @@ vzriv.rect = vzriv.image.get_rect()
 all_sprites.add(vzriv)
 shoot_group.add(vzriv)
 kill_zombie = None
+admin_mode = False
+reloral_time = 150
 
 while running:
     delay += 1  # эта переменная нужна для "искусственного интелекта" зомби и для выстрела
@@ -250,8 +266,21 @@ while running:
                 player.go('up')
             if event.key == pygame.K_s:
                 player.go('down')
+            if event.key == pygame.K_COMMA:
+                if admin_mode:
+                    STEP = 1
+                    admin_mode = False
+                    reloral_time = 250
+                else:
+                    STEP = 10
+                    admin_mode = True
+                    reloral_time = 1
         if event.type == pygame.MOUSEBUTTONDOWN:
-            player.shoot(player.rect[:2], pygame.mouse.get_pos())
+            if shooted[2]:
+                if delay - shooted[0] >= reloral_time:
+                    player.shoot(player.rect[:2], pygame.mouse.get_pos())
+            else:
+                player.shoot(player.rect[:2], pygame.mouse.get_pos())
         cursor.rect.topleft = pygame.mouse.get_pos()
     if shooted[1]:
         if delay - shooted[0] == 30:
@@ -275,6 +304,7 @@ while running:
         camera.apply(sprite)
     screen.fill('black')
     tiles_group.draw(screen)
+    ammo_group.draw(screen)
     zombie_group.draw(screen)
     if shooted[1]:
         shoot_group.draw(screen)
@@ -290,5 +320,6 @@ while running:
         pygame.mixer.music.play()
         pygame.display.flip()
         sleep(1)
+
     pygame.display.flip()
 pygame.quit()
