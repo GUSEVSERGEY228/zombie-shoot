@@ -272,7 +272,7 @@ while running:
                 player.go('up')
             if event.key == pygame.K_s:
                 player.go('down')
-            if event.key == pygame.K_COMMA:
+            if event.key == pygame.K_e:
                 if admin_mode:
                     STEP = 1
                     admin_mode = False
